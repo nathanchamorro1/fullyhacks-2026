@@ -16,18 +16,19 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-// ---- Warm palette ----
-const _creamBG = Color(0xFFFFF8F0);
-const _creamCard = Color(0xFFFFFDF9);
-const _inkDark = Color(0xFF1A2B4A);
-const _inkSoft = Color(0xFF4A5568);
-const _sunGold = Color(0xFFFFB547);
-const _happyGreen = Color(0xFF66BB6A);
-const _mehAmber = Color(0xFFFFA726);
-const _sadRed = Color(0xFFE57373);
-const _iceBlue = Color(0xFF81D4FA);
-const _iceDeep = Color(0xFF0288D1);
-const _water = Color(0xFF1976D2);
+import '../theme.dart';
+
+// ---- Palette aliases (preserve internal references to _ice* for painter) ----
+const _creamBG   = kBg;
+const _creamCard = kSurface;
+const _inkDark   = kInk;
+const _inkSoft   = kInkMuted;
+const _sunGold   = kGold;
+// Score mood colours now come from theme (kMoss / kAmber / kScarlet).
+// _happyGreen, _mehAmber, _sadRed removed — use _moodColor() instead.
+const _iceBlue = Color(0xFF81D4FA);   // used in water layer only
+const _iceDeep = Color(0xFF0288D1);   // used in iceberg painter only
+const _water   = Color(0xFF1976D2);   // used in water layer only
 
 // ============================================================
 // DATA MODELS (unchanged — drop-in when backend lands)
@@ -55,8 +56,8 @@ class ScanResult {
         name: 'Peanut Butter Chocolate Bar',
         brand: 'SnackCo',
         imageUrl: null,
-        score: 42,
-        grade: 'D',
+        score: 85,
+        grade: 'A',
         breakdown: [
           ScoreFactor(
             emoji: '📦',
@@ -144,9 +145,9 @@ _Mood _moodFromScore(int s) {
 }
 
 Color _moodColor(_Mood m) => switch (m) {
-      _Mood.happy => _happyGreen,
-      _Mood.meh => _mehAmber,
-      _Mood.sad => _sadRed,
+      _Mood.happy => kMoss,
+      _Mood.meh   => kAmber,
+      _Mood.sad   => kScarlet,
     };
 
 String _verdictTitle(_Mood m) => switch (m) {
@@ -212,13 +213,13 @@ class _ResultsScreenState extends State<ResultsScreen>
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            backgroundColor: _creamBG,
-            foregroundColor: _inkDark,
+            backgroundColor: kBg,
+            foregroundColor: kInk,
             pinned: true,
             elevation: 0,
-            title: const Text(
-              'Scan result',
-              style: TextStyle(fontWeight: FontWeight.w800),
+            title: Text(
+              'SCAN RESULT',
+              style: kLabelStyle(size: 13, color: kInk, letterSpacing: 2.0),
             ),
           ),
           // Hero polar bear scene.
@@ -865,22 +866,13 @@ class _VerdictCard extends StatelessWidget {
           Text(
             _verdictTitle(mood),
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: _inkDark,
-              height: 1.15,
-            ),
+            style: kDisplayStyle(size: 22, color: kInk, letterSpacing: -0.5),
           ),
           const SizedBox(height: 6),
           Text(
             _verdictSub(mood),
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 14,
-              color: _inkSoft,
-              height: 1.4,
-            ),
+            style: kBodyStyle(size: 14, color: kInkMuted),
           ),
           const SizedBox(height: 20),
 
@@ -1001,22 +993,24 @@ class _ScoreGauge extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  'Grade $grade',
+                  'GRADE $grade',
                   style: TextStyle(
+                    fontFamily: 'monospace',
                     color: color,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w900,
                     fontSize: 12,
-                    letterSpacing: 0.4,
+                    letterSpacing: 1.2,
                   ),
                 ),
               ),
+              const SizedBox(height: 10),
+              ScoreDots(score: score, size: 11, spacing: 6),
             ],
           ),
         ],
@@ -1129,14 +1123,15 @@ class _WarmSectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 4),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w800,
-          color: _inkDark,
-        ),
+      padding: const EdgeInsets.only(left: 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            text.toUpperCase(),
+            style: kLabelStyle(size: 11, color: kInkMuted),
+          ),
+        ],
       ),
     );
   }
@@ -1278,32 +1273,18 @@ class _AlternativeCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('🐻\u200d❄️',
-                        style: TextStyle(fontSize: 13)),
-                    const SizedBox(width: 5),
-                    Text(
-                      '${alt.score}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: color,
-                      ),
-                    ),
-                  ],
-                ),
+              Row(
+                children: [
+                  ScoreDots(score: alt.score, size: 9, spacing: 4),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${alt.score}',
+                    style: kMonoStyle(size: 13, color: color),
+                  ),
+                ],
               ),
               const Spacer(),
-              const Icon(Icons.favorite_rounded, color: _sadRed, size: 18),
+              const Icon(Icons.favorite_rounded, color: kScarlet, size: 18),
             ],
           ),
           const SizedBox(height: 12),
@@ -1391,21 +1372,13 @@ class _PointsBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '+$pts points earned!',
-                  style: const TextStyle(
-                    color: _inkDark,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                  ),
+                  '+$pts POINTS EARNED!',
+                  style: kDisplayStyle(size: 16, color: kInk, letterSpacing: 0.5),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
                   msg,
-                  style: const TextStyle(
-                    color: _inkSoft,
-                    fontSize: 12,
-                    height: 1.3,
-                  ),
+                  style: kBodyStyle(size: 12, color: kInkMuted),
                 ),
               ],
             ),
