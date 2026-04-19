@@ -1,4 +1,4 @@
-## Inspiration
+# Nanuk
 
 We created **Nanuk** to make sustainable shopping feel simple, personal, and motivating.
 
