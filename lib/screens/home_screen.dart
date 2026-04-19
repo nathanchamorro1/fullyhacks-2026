@@ -377,3 +377,33 @@ class _StatChip extends StatelessWidget {
     );
   }
 }
+
+// ── Active streak chip — dark green accent ────────────────────
+class _StreakChip extends StatelessWidget {
+  final int days;
+  const _StreakChip({required this.days});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+        decoration: BoxDecoration(
+          color: kMoss.withOpacity(0.10),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: kMoss.withOpacity(0.30)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.local_fire_department_rounded, color: kMoss, size: 18),
+            const SizedBox(height: 6),
+            Text('$days', style: kDisplayStyle(size: 22, color: kMoss)),
+            const SizedBox(height: 3),
+            Text('STREAK', style: kLabelStyle(size: 9, color: kMoss)),
+          ],
+        ),
+      ),
+    );
+  }
+}
