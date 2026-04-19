@@ -1,40 +1,43 @@
 // ============================================================
-// results_screen.dart — polar-bear-themed scan results.
+// results_screen.dart — warm, character-driven scan results.
 //
-// This is what the user sees right after scanning a product.
-// Layout (top → bottom):
-//   1. Product header     — image, name, brand
-//   2. Big score badge    — circular A-E grade + numeric, color-coded
-//   3. Nanuk reacts       — the polar bear's line changes with the score
-//   4. Category breakdown — packaging / ingredients / origin / company
-//   5. Greener alternatives — scrollable row of alternative-product cards
-//   6. Earn-points banner — gamification hook
+// The polar bear is the star. Everything else reacts to him.
 //
-// STANDALONE: this file uses a local `ScanResult` data class + hardcoded
-// demo data, so the scan-result-page branch compiles with no
-// dependency on other branches' models. When the backend + barcode
-// branches merge, swap the demo data for real API responses.
+//   Score  70+   → HAPPY.  Bright sky, snowflakes, solid ice,
+//                            smiling bear, confetti sparkles.
+//   Score 40–69 → MEH.    Overcast sky, neutral bear, cracked ice.
+//   Score  <40  → SAD.    Stormy grey sky, raindrops falling,
+//                            broken ice floes, crying bear.
+//
+// Intentional vibe: chunky, warm, playful. Less medical-chart,
+// more children's-book illustration.
 // ============================================================
 
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-// ---- Palette (matches home screen) ----
-const _iceDeep = Color(0xFF173E6B);
-const _iceMid = Color(0xFF4A90B8);
-const _iceSoft = Color(0xFFDCEEF7);
-const _iceWhite = Color(0xFFF6FAFD);
-const _gold = Color(0xFFFFB547);
+// ---- Warm palette ----
+const _creamBG = Color(0xFFFFF8F0);
+const _creamCard = Color(0xFFFFFDF9);
+const _inkDark = Color(0xFF1A2B4A);
+const _inkSoft = Color(0xFF4A5568);
+const _sunGold = Color(0xFFFFB547);
+const _happyGreen = Color(0xFF66BB6A);
+const _mehAmber = Color(0xFFFFA726);
+const _sadRed = Color(0xFFE57373);
+const _iceBlue = Color(0xFF81D4FA);
+const _iceDeep = Color(0xFF0288D1);
+const _water = Color(0xFF1976D2);
 
 // ============================================================
-// LOCAL DATA MODEL  (temporary — will be replaced by the shared
-// Product model once branches merge).
+// DATA MODELS (unchanged — drop-in when backend lands)
 // ============================================================
 class ScanResult {
   final String name;
   final String brand;
   final String? imageUrl;
-  final int score;        // 0-100
-  final String grade;     // "A" .. "E"
+  final int score;
+  final String grade;
   final List<ScoreFactor> breakdown;
   final List<Alternative> alternatives;
 
@@ -48,7 +51,6 @@ class ScanResult {
     this.imageUrl,
   });
 
-  /// Demo data so the screen renders standalone during development.
   factory ScanResult.demo() => const ScanResult(
         name: 'Peanut Butter Chocolate Bar',
         brand: 'SnackCo',
@@ -57,27 +59,27 @@ class ScanResult {
         grade: 'D',
         breakdown: [
           ScoreFactor(
-            icon: Icons.inventory_2_rounded,
+            emoji: '📦',
             label: 'Packaging',
-            detail: 'Single-use plastic wrapper, not recyclable in most regions.',
+            detail: 'Single-use plastic, not recyclable in most places.',
             score: 25,
           ),
           ScoreFactor(
-            icon: Icons.spa_rounded,
+            emoji: '🌱',
             label: 'Ingredients',
-            detail: 'Palm oil linked to deforestation. No organic certification.',
+            detail: 'Palm oil linked to deforestation. Not organic.',
             score: 35,
           ),
           ScoreFactor(
-            icon: Icons.public_rounded,
+            emoji: '🌍',
             label: 'Origin',
-            detail: 'Ingredients shipped from 3 continents; high transport emissions.',
+            detail: 'Ingredients from 3 continents — heavy shipping.',
             score: 40,
           ),
           ScoreFactor(
-            icon: Icons.factory_rounded,
+            emoji: '🏭',
             label: 'Company',
-            detail: 'No public sustainability pledges or emissions targets.',
+            detail: 'No public sustainability pledges or targets.',
             score: 55,
           ),
         ],
@@ -105,12 +107,12 @@ class ScanResult {
 }
 
 class ScoreFactor {
-  final IconData icon;
+  final String emoji;
   final String label;
   final String detail;
   final int score;
   const ScoreFactor({
-    required this.icon,
+    required this.emoji,
     required this.label,
     required this.detail,
     required this.score,
@@ -131,26 +133,87 @@ class Alternative {
 }
 
 // ============================================================
+// MOOD — derived from score
+// ============================================================
+enum _Mood { happy, meh, sad }
+
+_Mood _moodFromScore(int s) {
+  if (s >= 70) return _Mood.happy;
+  if (s >= 40) return _Mood.meh;
+  return _Mood.sad;
+}
+
+Color _moodColor(_Mood m) => switch (m) {
+      _Mood.happy => _happyGreen,
+      _Mood.meh => _mehAmber,
+      _Mood.sad => _sadRed,
+    };
+
+String _verdictTitle(_Mood m) => switch (m) {
+      _Mood.happy => 'Nanuk approves! 🎉',
+      _Mood.meh => 'Hmm... could be better',
+      _Mood.sad => 'Nanuk\'s ice is melting 💔',
+    };
+
+String _verdictSub(_Mood m) => switch (m) {
+      _Mood.happy => 'This product keeps the ice cold.',
+      _Mood.meh => 'Not terrible, but Nanuk has opinions.',
+      _Mood.sad => 'Please pick something gentler for our home.',
+    };
+
+String _nanukLine(_Mood m) => switch (m) {
+      _Mood.happy =>
+        '"My paws love this choice. The ice stays strong thanks to you."',
+      _Mood.meh =>
+        '"It\'s okay... but check out the alternatives below — they\'re kinder."',
+      _Mood.sad =>
+        '"Every one of these melts a little more of my home. Swap it, please?"',
+    };
+
+// ============================================================
 // MAIN SCREEN
 // ============================================================
-class ResultsScreen extends StatelessWidget {
+class ResultsScreen extends StatefulWidget {
   final ScanResult result;
-  // Non-const so we can fall back to ScanResult.demo() (a factory, which
-  // can't run at compile time). Dropping `const` here is a non-issue.
+
+  // Non-const: falls back to demo data via factory.
   ResultsScreen({super.key, ScanResult? result})
       : result = result ?? ScanResult.demo();
 
   @override
+  State<ResultsScreen> createState() => _ResultsScreenState();
+}
+
+class _ResultsScreenState extends State<ResultsScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 6),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final color = _scoreColor(result.score);
+    final mood = _moodFromScore(widget.result.score);
 
     return Scaffold(
-      backgroundColor: _iceWhite,
+      backgroundColor: _creamBG,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            backgroundColor: _iceSoft,
-            foregroundColor: _iceDeep,
+            backgroundColor: _creamBG,
+            foregroundColor: _inkDark,
             pinned: true,
             elevation: 0,
             title: const Text(
@@ -158,42 +221,53 @@ class ResultsScreen extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
+          // Hero polar bear scene.
+          SliverToBoxAdapter(
+            child: _MoodScene(mood: mood, animation: _ctrl),
+          ),
+          // Everything else.
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+              padding: const EdgeInsets.fromLTRB(18, 20, 18, 28),
               child: Column(
+                // MainAxisSize.min is required here: SliverToBoxAdapter
+                // gives children unbounded height, and Column's default
+                // max would try to fill infinity → box.dart assertion.
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _ProductHeader(result: result),
-                  const SizedBox(height: 20),
-                  _ScoreBadge(
-                    score: result.score,
-                    grade: result.grade,
-                    color: color,
+                  _VerdictCard(result: widget.result, mood: mood),
+                  const SizedBox(height: 18),
+                  _NanukQuote(mood: mood),
+                  const SizedBox(height: 24),
+                  const _WarmSectionTitle('Why Nanuk feels this way'),
+                  const SizedBox(height: 12),
+                  _BreakdownGrid(factors: widget.result.breakdown),
+                  const SizedBox(height: 28),
+                  const _WarmSectionTitle('Kinder swaps'),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Nanuk recommends these instead:',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: _inkSoft,
+                      height: 1.35,
+                    ),
                   ),
-                  const SizedBox(height: 20),
-                  _NanukReaction(score: result.score),
-                  const SizedBox(height: 24),
-                  const _SectionTitle('Why this score'),
-                  const SizedBox(height: 10),
-                  ...result.breakdown
-                      .map((f) => _BreakdownRow(factor: f))
-                      .toList(),
-                  const SizedBox(height: 24),
-                  const _SectionTitle('Greener alternatives'),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 14),
                   SizedBox(
-                    height: 178,
+                    height: 210,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
-                      itemCount: result.alternatives.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      itemCount: widget.result.alternatives.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 14),
                       itemBuilder: (_, i) =>
-                          _AlternativeCard(alt: result.alternatives[i]),
+                          _AlternativeCard(alt: widget.result.alternatives[i]),
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const _PointsBanner(),
+                  _PointsBanner(mood: mood),
                 ],
               ),
             ),
@@ -202,76 +276,651 @@ class ResultsScreen extends StatelessWidget {
       ),
     );
   }
-
-  // Green (80+), teal (60-79), amber (40-59), orange (20-39), red (<20).
-  static Color _scoreColor(int s) {
-    if (s >= 80) return const Color(0xFF2E7D57);
-    if (s >= 60) return const Color(0xFF4A90B8);
-    if (s >= 40) return const Color(0xFFFFB547);
-    if (s >= 20) return const Color(0xFFEF6C00);
-    return const Color(0xFFD84315);
-  }
 }
 
 // ============================================================
-// PRODUCT HEADER — image + name + brand
+// MOOD SCENE — the hero.
+// Sky gradient, ice platform, polar bear with expression,
+// animated particles (snow/rain/clouds).
 // ============================================================
-class _ProductHeader extends StatelessWidget {
-  final ScanResult result;
-  const _ProductHeader({required this.result});
+class _MoodScene extends StatelessWidget {
+  final _Mood mood;
+  final Animation<double> animation;
+
+  const _MoodScene({required this.mood, required this.animation});
+
+  List<Color> get _skyColors => switch (mood) {
+        _Mood.happy => const [Color(0xFFB3E5FC), Color(0xFFE1F5FE)],
+        _Mood.meh => const [Color(0xFFB0BEC5), Color(0xFFECEFF1)],
+        _Mood.sad => const [Color(0xFF546E7A), Color(0xFF90A4AE)],
+      };
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      height: 300,
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: _skyColors,
+        ),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: _iceMid.withValues(alpha: 0.10),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: _inkDark.withValues(alpha: 0.10),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Row(
+      // Everything inside is decorative — IgnorePointer stops the
+      // mouse tracker from hit-testing animated children every frame
+      // (which caused the mouse_tracker assertion spam on web).
+      child: IgnorePointer(
+        child: Stack(
+          children: [
+            // Sun / moon decoration
+            Positioned(
+              top: 22,
+              right: 28,
+              child: _Sun(mood: mood),
+            ),
+
+            // Animated particles (snow / rain / clouds).
+            // LayoutBuilder is OUTSIDE AnimatedBuilder so we only
+            // re-measure once, not on every frame.
+            Positioned.fill(
+              child: LayoutBuilder(
+                builder: (ctx, constraints) {
+                  final w = constraints.maxWidth;
+                  final h = constraints.maxHeight - 80; // keep above water
+                  return AnimatedBuilder(
+                    animation: animation,
+                    builder: (_, __) => _ParticleField(
+                      mood: mood,
+                      t: animation.value,
+                      width: w,
+                      height: h,
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            // Water at the bottom
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 70,
+              child: _WaterLayer(mood: mood, animation: animation),
+            ),
+
+            // Ice platform + bear (centered bottom)
+            Positioned(
+              bottom: 20,
+              left: 0,
+              right: 0,
+              child: _IceAndBear(mood: mood, animation: animation),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// SUN / STORM CLOUD
+// ============================================================
+class _Sun extends StatelessWidget {
+  final _Mood mood;
+  const _Sun({required this.mood});
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (mood) {
+      _Mood.happy => Container(
+          width: 54,
+          height: 54,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const RadialGradient(
+              colors: [Color(0xFFFFE082), _sunGold],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: _sunGold.withValues(alpha: 0.55),
+                blurRadius: 24,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+        ),
+      _Mood.meh => const Text('☁️', style: TextStyle(fontSize: 44)),
+      _Mood.sad => const Text('⛈️', style: TextStyle(fontSize: 44)),
+    };
+  }
+}
+
+// ============================================================
+// PARTICLE FIELD — snow, rain, or drifting clouds.
+// Driven by `t` from 0..1 looping.
+// width/height are passed in from a LayoutBuilder OUTSIDE the
+// AnimatedBuilder so we don't re-measure every frame.
+// ============================================================
+class _ParticleField extends StatelessWidget {
+  final _Mood mood;
+  final double t;
+  final double width;
+  final double height;
+  const _ParticleField({
+    required this.mood,
+    required this.t,
+    required this.width,
+    required this.height,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (width <= 0 || height <= 0) return const SizedBox.shrink();
+
+    final rng = math.Random(7);
+    final count = mood == _Mood.meh ? 6 : 20;
+
+    final (emoji, baseSize) = switch (mood) {
+      _Mood.happy => ('❄️', 14.0),
+      _Mood.meh => ('☁️', 22.0),
+      _Mood.sad => ('💧', 12.0),
+    };
+
+    return Stack(
+      children: List.generate(count, (i) {
+        final xSeed = rng.nextDouble();
+        final phase = rng.nextDouble();
+        final speed = 0.5 + rng.nextDouble() * 0.7;
+        final sizeJitter = rng.nextDouble();
+        final opacityJitter = rng.nextDouble();
+
+        final progress = (t * speed + phase) % 1.0;
+        final x = xSeed * (width - 20);
+        final y = progress * height;
+        final size = baseSize + sizeJitter * 10;
+        final opacity = 0.45 + opacityJitter * 0.45;
+
+        return Positioned(
+          left: x,
+          top: y,
+          child: Opacity(
+            opacity: opacity,
+            child: Text(emoji, style: TextStyle(fontSize: size)),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+// ============================================================
+// WATER LAYER — animated ripples at the bottom.
+// ============================================================
+class _WaterLayer extends StatelessWidget {
+  final _Mood mood;
+  final Animation<double> animation;
+  const _WaterLayer({required this.mood, required this.animation});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = mood == _Mood.sad
+        ? _water
+        : (mood == _Mood.meh ? _iceDeep : _iceBlue);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [color.withValues(alpha: 0.55), color],
+        ),
+      ),
+      child: AnimatedBuilder(
+        animation: animation,
+        builder: (_, __) {
+          final wobble = math.sin(animation.value * 2 * math.pi) * 4;
+          return Stack(
+            children: [
+              Positioned(
+                top: 8 + wobble,
+                left: 20,
+                child: const Text('~', style: TextStyle(color: Colors.white70, fontSize: 18)),
+              ),
+              Positioned(
+                top: 22 - wobble,
+                left: 120,
+                child: const Text('~', style: TextStyle(color: Colors.white70, fontSize: 22)),
+              ),
+              Positioned(
+                top: 14 + wobble,
+                right: 40,
+                child: const Text('~', style: TextStyle(color: Colors.white70, fontSize: 20)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ============================================================
+// ICE + BEAR
+// Happy: solid wide platform, smiling bear, sparkles.
+// Meh:   cracked platform, bear with neutral face.
+// Sad:   two small broken floes, crying bear drifting (wobble).
+// ============================================================
+class _IceAndBear extends StatelessWidget {
+  final _Mood mood;
+  final Animation<double> animation;
+
+  const _IceAndBear({required this.mood, required this.animation});
+
+  @override
+  Widget build(BuildContext context) {
+    // Slow wobble effect — bigger for sad (drifting).
+    final wobbleAmount = switch (mood) {
+      _Mood.happy => 0.0,
+      _Mood.meh => 2.0,
+      _Mood.sad => 6.0,
+    };
+
+    // Passing the static content as `child` tells AnimatedBuilder
+    // to NOT rebuild it every frame — only the Transform wrapper
+    // recomputes. Cheaper + fewer layout passes.
+    return AnimatedBuilder(
+      animation: animation,
+      child: _IceSceneContent(mood: mood),
+      builder: (_, child) {
+        final wobble =
+            math.sin(animation.value * 2 * math.pi) * wobbleAmount;
+        return Transform.translate(
+          offset: Offset(wobble, 0),
+          child: child,
+        );
+      },
+    );
+  }
+}
+
+class _IceSceneContent extends StatelessWidget {
+  final _Mood mood;
+  const _IceSceneContent({required this.mood});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // The bear + expression
+        _PolarBear(mood: mood),
+        // The ice platform under the bear
+        _IcePlatform(mood: mood),
+      ],
+    );
+  }
+}
+
+// ============================================================
+// POLAR BEAR — emoji + mood expression floating near face.
+// ============================================================
+class _PolarBear extends StatelessWidget {
+  final _Mood mood;
+  const _PolarBear({required this.mood});
+
+  @override
+  Widget build(BuildContext context) {
+    // Expression badge that sits near the bear's face.
+    final String badge = switch (mood) {
+      _Mood.happy => '✨',
+      _Mood.meh => '😕',
+      _Mood.sad => '😢',
+    };
+
+    return SizedBox(
+      width: 160,
+      height: 120,
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              width: 76,
-              height: 76,
-              child: result.imageUrl != null
-                  ? Image.network(result.imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const _ImageFallback())
-                  : const _ImageFallback(),
+          // The bear itself
+          const Text('🐻\u200d❄️', style: TextStyle(fontSize: 90)),
+
+          // Expression badge top-right
+          Positioned(
+            top: 4,
+            right: 14,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: Text(badge, style: const TextStyle(fontSize: 24)),
             ),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+
+          // Extra flair for happy: floating hearts
+          if (mood == _Mood.happy)
+            const Positioned(
+              top: 20,
+              left: 12,
+              child: Text('💙', style: TextStyle(fontSize: 22)),
+            ),
+
+          // Extra flair for sad: tear drop trail
+          if (mood == _Mood.sad) ...[
+            const Positioned(
+              bottom: 22,
+              left: 62,
+              child: Text('💧', style: TextStyle(fontSize: 16)),
+            ),
+            const Positioned(
+              bottom: 8,
+              left: 70,
+              child: Text('💧', style: TextStyle(fontSize: 13)),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// ICE PLATFORM — solid block or broken floes.
+// ============================================================
+class _IcePlatform extends StatelessWidget {
+  final _Mood mood;
+  const _IcePlatform({required this.mood});
+
+  @override
+  Widget build(BuildContext context) {
+    // Return tightly-sized widgets so a parent Column with
+    // mainAxisSize.min doesn't choke on infinite-width children.
+    return switch (mood) {
+      _Mood.happy => _IceBlock(width: 260, tilt: 0),
+      _Mood.meh => SizedBox(
+          width: 220,
+          height: 46,
+          child: Stack(
+            alignment: Alignment.bottomCenter,
+            children: [
+              _IceBlock(width: 220, tilt: 0),
+              // Crack line running down from a peak.
+              Positioned(
+                bottom: 2,
+                child: Container(
+                  width: 2,
+                  height: 20,
+                  color: _inkDark.withValues(alpha: 0.35),
+                ),
+              ),
+            ],
+          ),
+        ),
+      _Mood.sad => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _IceBlock(width: 90, tilt: -0.12),
+            const SizedBox(width: 18),
+            _IceBlock(width: 110, tilt: 0.08),
+          ],
+        ),
+    };
+  }
+}
+
+class _IceBlock extends StatelessWidget {
+  final double width;
+  final double tilt;
+  const _IceBlock({required this.width, required this.tilt});
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.rotate(
+      angle: tilt,
+      child: CustomPaint(
+        size: Size(width, 42),
+        painter: const _IcebergPainter(),
+      ),
+    );
+  }
+}
+
+// Paints a faceted iceberg with jagged peaks, snow caps, and facet
+// lines. Shape is normalized to the canvas size so it scales for any
+// width the caller supplies.
+class _IcebergPainter extends CustomPainter {
+  const _IcebergPainter();
+
+  // Peak outline as fractions of (width, height). We trace the silhouette
+  // starting from the left waterline, up over jagged peaks, back down to
+  // the right waterline, then across the flat bottom.
+  static const _silhouette = <Offset>[
+    Offset(0.00, 0.62), // left base
+    Offset(0.06, 0.40), // up toward first peak
+    Offset(0.12, 0.18), // ↗ peak 1
+    Offset(0.19, 0.08), // peak 1 top
+    Offset(0.24, 0.26), // valley
+    Offset(0.32, 0.04), // peak 2 (tallest)
+    Offset(0.40, 0.30), // valley
+    Offset(0.48, 0.14), // peak 3
+    Offset(0.55, 0.24), // valley
+    Offset(0.64, 0.06), // peak 4
+    Offset(0.72, 0.22), // valley
+    Offset(0.82, 0.32), // back down
+    Offset(0.92, 0.50),
+    Offset(1.00, 0.66), // right base
+    Offset(1.00, 1.00), // bottom-right
+    Offset(0.00, 1.00), // bottom-left
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // ---- Build the main silhouette path ----
+    final body = Path();
+    body.moveTo(_silhouette.first.dx * w, _silhouette.first.dy * h);
+    for (final p in _silhouette.skip(1)) {
+      body.lineTo(p.dx * w, p.dy * h);
+    }
+    body.close();
+
+    // ---- Soft shadow just underneath (gives it depth) ----
+    canvas.save();
+    canvas.translate(0, 4);
+    canvas.drawPath(
+      body,
+      Paint()
+        ..color = _iceDeep.withValues(alpha: 0.22)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+    canvas.restore();
+
+    // ---- Main iceberg fill (cool gradient top→bottom) ----
+    final bodyGradient = const LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        Color(0xFFFAFEFF), // almost-white highlight up top
+        Color(0xFFDBF0FB),
+        Color(0xFFA2D8F2),
+        Color(0xFF4FC3F7), // deeper cyan near water
+      ],
+      stops: [0.0, 0.35, 0.7, 1.0],
+    );
+    canvas.drawPath(
+      body,
+      Paint()..shader = bodyGradient.createShader(Rect.fromLTWH(0, 0, w, h)),
+    );
+
+    // ---- Snow caps on each peak ----
+    final snow = Paint()..color = Colors.white.withValues(alpha: 0.92);
+    _drawCap(canvas, snow, w, h, peakX: 0.19, peakY: 0.08, spread: 0.055);
+    _drawCap(canvas, snow, w, h, peakX: 0.32, peakY: 0.04, spread: 0.06);
+    _drawCap(canvas, snow, w, h, peakX: 0.48, peakY: 0.14, spread: 0.05);
+    _drawCap(canvas, snow, w, h, peakX: 0.64, peakY: 0.06, spread: 0.055);
+
+    // ---- Facet lines — subtle cracks running down from peaks ----
+    final facet = Paint()
+      ..color = _iceDeep.withValues(alpha: 0.18)
+      ..strokeWidth = 1;
+    canvas.drawLine(
+        Offset(0.19 * w, 0.08 * h), Offset(0.21 * w, 0.70 * h), facet);
+    canvas.drawLine(
+        Offset(0.32 * w, 0.04 * h), Offset(0.36 * w, 0.80 * h), facet);
+    canvas.drawLine(
+        Offset(0.48 * w, 0.14 * h), Offset(0.52 * w, 0.72 * h), facet);
+    canvas.drawLine(
+        Offset(0.64 * w, 0.06 * h), Offset(0.66 * w, 0.74 * h), facet);
+
+    // ---- White outline on top edges (crisp snow rim) ----
+    final rim = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 1.6
+      ..style = PaintingStyle.stroke
+      ..strokeJoin = StrokeJoin.round;
+    final rimPath = Path();
+    rimPath.moveTo(_silhouette.first.dx * w, _silhouette.first.dy * h);
+    // only the top silhouette (skip the flat bottom two points)
+    for (final p in _silhouette.sublist(1, _silhouette.length - 2)) {
+      rimPath.lineTo(p.dx * w, p.dy * h);
+    }
+    canvas.drawPath(rimPath, rim);
+  }
+
+  // Draws a small white triangular cap centered on a peak point.
+  void _drawCap(
+    Canvas canvas,
+    Paint paint,
+    double w,
+    double h, {
+    required double peakX,
+    required double peakY,
+    required double spread,
+  }) {
+    final cap = Path()
+      ..moveTo((peakX - spread) * w, (peakY + 0.06) * h)
+      ..lineTo(peakX * w, peakY * h)
+      ..lineTo((peakX + spread) * w, (peakY + 0.06) * h)
+      ..close();
+    canvas.drawPath(cap, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _IcebergPainter oldDelegate) => false;
+}
+
+// ============================================================
+// VERDICT CARD — score is the hero. Big circular gauge with
+// the number in the center, then verdict headline underneath.
+// ============================================================
+class _VerdictCard extends StatelessWidget {
+  final ScanResult result;
+  final _Mood mood;
+  const _VerdictCard({required this.result, required this.mood});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _moodColor(mood);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 26, 20, 20),
+      decoration: BoxDecoration(
+        color: _creamCard,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.22),
+            blurRadius: 26,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // ---- HERO SCORE GAUGE ----
+          _ScoreGauge(
+            score: result.score,
+            grade: result.grade,
+            color: color,
+          ),
+          const SizedBox(height: 20),
+
+          // ---- VERDICT TITLE ----
+          Text(
+            _verdictTitle(mood),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: _inkDark,
+              height: 1.15,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _verdictSub(mood),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              color: _inkSoft,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // ---- PRODUCT INFO FOOTER ----
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: _creamBG,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
               children: [
-                Text(
-                  result.name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: _iceDeep,
+                const Text('🛒', style: TextStyle(fontSize: 20)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        result.name,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w800,
+                          color: _inkDark,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (result.brand.isNotEmpty)
+                        Text(
+                          result.brand,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: _inkSoft,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-                if (result.brand.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    result.brand,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.black54,
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
@@ -281,27 +930,16 @@ class _ProductHeader extends StatelessWidget {
   }
 }
 
-class _ImageFallback extends StatelessWidget {
-  const _ImageFallback();
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: _iceSoft,
-      alignment: Alignment.center,
-      child: const Icon(Icons.shopping_bag_rounded,
-          color: _iceMid, size: 34),
-    );
-  }
-}
-
 // ============================================================
-// SCORE BADGE — big circular score with grade letter.
+// SCORE GAUGE — the star of the whole results page.
+// Circular ring with a mood-colored progress arc + HUGE number
+// in the middle + grade pill underneath.
 // ============================================================
-class _ScoreBadge extends StatelessWidget {
+class _ScoreGauge extends StatelessWidget {
   final int score;
   final String grade;
   final Color color;
-  const _ScoreBadge({
+  const _ScoreGauge({
     required this.score,
     required this.grade,
     required this.color,
@@ -309,172 +947,174 @@ class _ScoreBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.18),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
+    return SizedBox(
+      width: 200,
+      height: 200,
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          // Circular grade badge.
-          SizedBox(
-            width: 120,
-            height: 120,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Progress ring.
-                SizedBox(
-                  width: 120,
-                  height: 120,
-                  child: CircularProgressIndicator(
-                    value: score / 100,
-                    strokeWidth: 10,
-                    backgroundColor: _iceSoft,
-                    valueColor: AlwaysStoppedAnimation(color),
-                  ),
-                ),
-                // Inner text.
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      grade,
-                      style: TextStyle(
-                        fontSize: 40,
-                        fontWeight: FontWeight.w900,
-                        color: color,
-                        height: 1,
-                      ),
-                    ),
-                    Text(
-                      '$score/100',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.black54,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+          // Soft mood-colored glow behind the gauge.
+          Container(
+            width: 200,
+            height: 200,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  color.withValues(alpha: 0.18),
+                  color.withValues(alpha: 0.0),
+                ],
+                stops: const [0.55, 1.0],
+              ),
             ),
           ),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Sustainability',
+
+          // The arc itself.
+          CustomPaint(
+            size: const Size(200, 200),
+            painter: _ScoreArcPainter(score: score, color: color),
+          ),
+
+          // Center content — score + /100 + grade pill.
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$score',
+                style: TextStyle(
+                  fontSize: 72,
+                  fontWeight: FontWeight.w900,
+                  color: color,
+                  height: 0.95,
+                  letterSpacing: -2,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'out of 100',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: _inkSoft,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 4),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  'Grade $grade',
                   style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.black54,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _headlineForScore(score),
-                  style: const TextStyle(
-                    fontSize: 18,
+                    color: color,
                     fontWeight: FontWeight.w800,
-                    color: _iceDeep,
-                    height: 1.2,
+                    fontSize: 12,
+                    letterSpacing: 0.4,
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  _subForScore(score),
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    color: Colors.black54,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
-
-  static String _headlineForScore(int s) {
-    if (s >= 80) return 'Excellent choice';
-    if (s >= 60) return 'Pretty good';
-    if (s >= 40) return 'Could be better';
-    if (s >= 20) return 'Heavy impact';
-    return 'Poor choice';
-  }
-
-  static String _subForScore(int s) {
-    if (s >= 80) return 'This product has strong eco credentials.';
-    if (s >= 60) return 'Decent overall — a few areas to watch.';
-    if (s >= 40) return 'Mixed signals. Check alternatives below.';
-    if (s >= 20) return 'Significant environmental concerns.';
-    return 'Major red flags across the board.';
-  }
 }
 
-// ============================================================
-// NANUK'S REACTION — polar bear speaks based on the score.
-// ============================================================
-class _NanukReaction extends StatelessWidget {
+// Paints the score gauge: a full background ring + a colored
+// progress arc covering `score / 100` of the circle, starting
+// from the top (12 o'clock) and moving clockwise.
+class _ScoreArcPainter extends CustomPainter {
   final int score;
-  const _NanukReaction({required this.score});
+  final Color color;
+  const _ScoreArcPainter({required this.score, required this.color});
 
-  String get _line {
-    if (score >= 80) return "My ice is refreezing. Thank you!";
-    if (score >= 60) return "Not bad! Keep the good picks coming.";
-    if (score >= 40) return "Hmm. Maybe try an alternative below?";
-    return "Oh no — my ice is melting. Please pick better!";
+  @override
+  void paint(Canvas canvas, Size size) {
+    const stroke = 14.0;
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = math.min(size.width, size.height) / 2 - stroke / 2 - 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    // Background ring — soft neutral so the progress arc pops.
+    final bg = Paint()
+      ..color = _inkSoft.withValues(alpha: 0.14)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(rect, -math.pi / 2, 2 * math.pi, false, bg);
+
+    // Colored progress arc.
+    final progress = (score.clamp(0, 100)) / 100.0;
+    final sweep = progress * 2 * math.pi;
+    if (sweep <= 0) return;
+
+    final arc = Paint()
+      ..shader = SweepGradient(
+        startAngle: -math.pi / 2,
+        endAngle: -math.pi / 2 + sweep,
+        colors: [color.withValues(alpha: 0.55), color],
+      ).createShader(rect)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(rect, -math.pi / 2, sweep, false, arc);
   }
 
   @override
+  bool shouldRepaint(covariant _ScoreArcPainter old) =>
+      old.score != score || old.color != color;
+}
+
+// ============================================================
+// NANUK QUOTE — rounded warm speech bubble.
+// ============================================================
+class _NanukQuote extends StatelessWidget {
+  final _Mood mood;
+  const _NanukQuote({required this.mood});
+
+  @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Container(
-          width: 72,
-          height: 72,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white,
-            border: Border.all(color: _iceSoft, width: 3),
-          ),
-          alignment: Alignment.center,
-          child: const Text('🐻\u200d❄️', style: TextStyle(fontSize: 40)),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _creamCard,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _sunGold.withValues(alpha: 0.25), width: 1.5),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
-              color: _iceSoft,
-              borderRadius: BorderRadius.circular(16),
+              shape: BoxShape.circle,
+              color: _creamBG,
+              border: Border.all(color: _sunGold.withValues(alpha: 0.3), width: 2),
             ),
+            alignment: Alignment.center,
+            child: const Text('🐻\u200d❄️', style: TextStyle(fontSize: 26)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
             child: Text(
-              _line,
+              _nanukLine(mood),
               style: const TextStyle(
-                fontSize: 13.5,
-                color: _iceDeep,
+                fontSize: 14,
+                height: 1.45,
+                color: _inkDark,
+                fontStyle: FontStyle.italic,
                 fontWeight: FontWeight.w600,
-                height: 1.35,
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -482,41 +1122,79 @@ class _NanukReaction extends StatelessWidget {
 // ============================================================
 // SECTION TITLE
 // ============================================================
-class _SectionTitle extends StatelessWidget {
+class _WarmSectionTitle extends StatelessWidget {
   final String text;
-  const _SectionTitle(this.text);
+  const _WarmSectionTitle(this.text);
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 15,
-        fontWeight: FontWeight.w800,
-        color: _iceDeep,
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+          color: _inkDark,
+        ),
       ),
     );
   }
 }
 
 // ============================================================
-// BREAKDOWN ROW — one line per factor (packaging, etc.) with a
-// mini progress bar and explanation.
+// BREAKDOWN — 2x2 grid of chunky emoji chips.
 // ============================================================
-class _BreakdownRow extends StatelessWidget {
-  final ScoreFactor factor;
-  const _BreakdownRow({required this.factor});
+class _BreakdownGrid extends StatelessWidget {
+  final List<ScoreFactor> factors;
+  const _BreakdownGrid({required this.factors});
 
   @override
   Widget build(BuildContext context) {
-    final color = ResultsScreen._scoreColor(factor.score);
+    // Build a 2-column grid manually so tiles can be flexible in height.
+    final rows = <Widget>[];
+    for (int i = 0; i < factors.length; i += 2) {
+      final a = factors[i];
+      final b = i + 1 < factors.length ? factors[i + 1] : null;
+      rows.add(Padding(
+        padding: EdgeInsets.only(top: i == 0 ? 0 : 12),
+        // IntrinsicHeight lets two chips match heights without
+        // stretch-layout assertions on web.
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: _FactorChip(factor: a)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: b != null
+                    ? _FactorChip(factor: b)
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
+      ));
+    }
+    return Column(children: rows);
+  }
+}
+
+class _FactorChip extends StatelessWidget {
+  final ScoreFactor factor;
+  const _FactorChip({required this.factor});
+
+  @override
+  Widget build(BuildContext context) {
+    final mood = _moodFromScore(factor.score);
+    final color = _moodColor(mood);
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _iceSoft),
+        color: _creamCard,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: color.withValues(alpha: 0.35), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -524,50 +1202,43 @@ class _BreakdownRow extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+                  shape: BoxShape.circle,
+                  color: color.withValues(alpha: 0.14),
                 ),
-                child: Icon(factor.icon, color: color, size: 18),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                factor.label,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: _iceDeep,
-                ),
+                alignment: Alignment.center,
+                child: Text(factor.emoji,
+                    style: const TextStyle(fontSize: 20)),
               ),
               const Spacer(),
               Text(
-                '${factor.score}/100',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: color,
-                ),
+                switch (mood) {
+                  _Mood.happy => '👍',
+                  _Mood.meh => '🤷',
+                  _Mood.sad => '👎',
+                },
+                style: const TextStyle(fontSize: 18),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: factor.score / 100,
-              minHeight: 6,
-              backgroundColor: _iceSoft,
-              valueColor: AlwaysStoppedAnimation(color),
+          Text(
+            factor.label,
+            style: const TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w800,
+              color: _inkDark,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
             factor.detail,
             style: const TextStyle(
-              fontSize: 12.5,
-              color: Colors.black54,
-              height: 1.4,
+              fontSize: 11.5,
+              color: _inkSoft,
+              height: 1.35,
             ),
           ),
         ],
@@ -577,7 +1248,7 @@ class _BreakdownRow extends StatelessWidget {
 }
 
 // ============================================================
-// ALTERNATIVE CARD — a single "try this instead" card.
+// ALTERNATIVE CARD — chunky, warm, score pill at top.
 // ============================================================
 class _AlternativeCard extends StatelessWidget {
   final Alternative alt;
@@ -585,14 +1256,22 @@ class _AlternativeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = ResultsScreen._scoreColor(alt.score);
+    final mood = _moodFromScore(alt.score);
+    final color = _moodColor(mood);
+
     return Container(
-      width: 200,
+      width: 210,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _iceSoft),
+        color: _creamCard,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: _inkDark.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -600,33 +1279,41 @@ class _AlternativeCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(8),
+                  color: color.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(999),
                 ),
-                child: Text(
-                  '${alt.score}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: color,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('🐻\u200d❄️',
+                        style: TextStyle(fontSize: 13)),
+                    const SizedBox(width: 5),
+                    Text(
+                      '${alt.score}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: color,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const Spacer(),
-              const Icon(Icons.eco_rounded, color: _iceMid, size: 18),
+              const Icon(Icons.favorite_rounded, color: _sadRed, size: 18),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
             alt.name,
             style: const TextStyle(
-              fontSize: 13.5,
+              fontSize: 14,
               fontWeight: FontWeight.w800,
-              color: _iceDeep,
-              height: 1.25,
+              color: _inkDark,
+              height: 1.2,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -634,19 +1321,27 @@ class _AlternativeCard extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             alt.brand,
-            style: const TextStyle(fontSize: 11.5, color: Colors.black54),
+            style: const TextStyle(fontSize: 11.5, color: _inkSoft),
           ),
           const Spacer(),
-          Text(
-            alt.reason,
-            style: const TextStyle(
-              fontSize: 11.5,
-              color: _iceDeep,
-              fontWeight: FontWeight.w600,
-              height: 1.3,
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: _creamBG,
+              borderRadius: BorderRadius.circular(14),
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+            child: Text(
+              alt.reason,
+              style: const TextStyle(
+                fontSize: 11.5,
+                color: _inkDark,
+                fontWeight: FontWeight.w600,
+                height: 1.3,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
@@ -655,51 +1350,62 @@ class _AlternativeCard extends StatelessWidget {
 }
 
 // ============================================================
-// POINTS BANNER — the gamification hook at the bottom.
+// POINTS BANNER — warm, mood-aware.
 // ============================================================
 class _PointsBanner extends StatelessWidget {
-  const _PointsBanner();
+  final _Mood mood;
+  const _PointsBanner({required this.mood});
 
   @override
   Widget build(BuildContext context) {
+    final pts = mood == _Mood.happy ? 20 : 10;
+    final msg = mood == _Mood.happy
+        ? 'Great pick! Bonus points for keeping Nanuk happy.'
+        : 'Earn 2× points when you pick a kinder swap above.';
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [_iceMid, _iceDeep],
+          colors: [Color(0xFFFFE0B2), Color(0xFFFFD180)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: _gold.withValues(alpha: 0.22),
-              borderRadius: BorderRadius.circular(12),
+            width: 52,
+            height: 52,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
             ),
-            child: const Icon(Icons.emoji_events_rounded,
-                color: _gold, size: 26),
+            alignment: Alignment.center,
+            child: const Text('🏆', style: TextStyle(fontSize: 26)),
           ),
           const SizedBox(width: 14),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '+10 points earned!',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
+                  '+$pts points earned!',
+                  style: const TextStyle(
+                    color: _inkDark,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
-                  'Pick a greener alt to earn 2×',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                  msg,
+                  style: const TextStyle(
+                    color: _inkSoft,
+                    fontSize: 12,
+                    height: 1.3,
+                  ),
                 ),
               ],
             ),

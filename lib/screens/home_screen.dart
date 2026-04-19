@@ -1,31 +1,28 @@
 // ============================================================
 // home_screen.dart — polar-bear-themed landing screen.
 //
-// The scan button is the HERO. Everything else supports it.
-//
-// Layout (top → bottom):
-//   1. Minimal header            — app name + profile icon
-//   2. Nanuk the polar bear      — mascot with a speech bubble line
-//   3. Big circular scan button  — pulsing, center-stage, hard to miss
-//   4. Stat chips                — compact points / CO2 / streak
-//   5. Footer row                — History + Eco tips
-//
-// Swap the mascot emoji for a PNG later by replacing _NanukMascot's
-// child Text('🐻‍\u200d❄️') with Image.asset('assets/nanuk.png').
+// Warm, character-driven aesthetic matching the results page:
+// cream backdrop, gold accents, Nanuk front-and-center.
+// The scan button keeps its glacier blue core so it still reads
+// as "scan = tech action" — but it's wrapped in a warm gold halo.
 // ============================================================
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
+// ---- Warm palette (shared with results) ----
+const _creamBG = Color(0xFFFFF8F0);
+const _creamCard = Color(0xFFFFFDF9);
+const _inkDark = Color(0xFF1A2B4A);
+const _inkSoft = Color(0xFF4A5568);
+const _sunGold = Color(0xFFFFB547);
+const _sunGoldLight = Color(0xFFFFE082);
+const _iceBlue = Color(0xFF4A90B8); // glacier blue (scan button only)
+const _iceDeep = Color(0xFF173E6B); // arctic night navy
+const _happyGreen = Color(0xFF66BB6A);
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
-
-  // ---- Icy palette ----
-  static const iceDeep = Color(0xFF173E6B);   // arctic night navy
-  static const iceMid = Color(0xFF4A90B8);    // glacier blue
-  static const iceSoft = Color(0xFFDCEEF7);   // pale sky
-  static const iceWhite = Color(0xFFF6FAFD);  // almost-white snow
-  static const accent = Color(0xFFFFB547);    // warm gold (points/awards)
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -71,14 +68,22 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Sky-to-snow gradient background.
+      backgroundColor: _creamBG,
+      bottomNavigationBar: _NanukNavBar(
+        currentIndex: 0,
+        onSnack: _showSnack,
+      ),
+      // Soft cream gradient with a warm golden glow in the corner.
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [HomeScreen.iceSoft, HomeScreen.iceWhite],
-            stops: [0.0, 0.7],
+          gradient: RadialGradient(
+            center: Alignment(0.0, -0.9),
+            radius: 1.1,
+            colors: [
+              Color(0xFFFFF2DE), // gentle sun-kissed cream at top
+              _creamBG,          // base warm cream
+            ],
+            stops: [0.0, 0.85],
           ),
         ),
         child: SafeArea(
@@ -106,29 +111,7 @@ class _HomeScreenState extends State<HomeScreen>
 
                 // ----- STAT CHIPS -----
                 const _StatChipRow(),
-
-                const SizedBox(height: 14),
-
-                // ----- FOOTER ACTIONS -----
-                Row(
-                  children: [
-                    Expanded(
-                      child: _FooterButton(
-                        icon: Icons.history_rounded,
-                        label: 'History',
-                        onTap: () => _showSnack('History coming soon'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _FooterButton(
-                        icon: Icons.lightbulb_outline_rounded,
-                        label: 'Eco tips',
-                        onTap: () => _showSnack('Eco tips coming soon'),
-                      ),
-                    ),
-                  ],
-                ),
+                const SizedBox(height: 8),
               ],
             ),
           ),
@@ -148,31 +131,46 @@ class _TopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
+        // Warm golden logo chip.
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: HomeScreen.iceDeep,
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [_sunGoldLight, _sunGold],
+            ),
             borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: _sunGold.withValues(alpha: 0.35),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: const Icon(Icons.ac_unit_rounded,
               color: Colors.white, size: 20),
         ),
         const SizedBox(width: 10),
         const Text(
-          'SustainScan',
+          'Nanuk',
           style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-            color: HomeScreen.iceDeep,
-            letterSpacing: 0.2,
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            color: _inkDark,
+            letterSpacing: 0.3,
           ),
         ),
-        const Spacer(),
-        IconButton(
-          icon: const Icon(Icons.person_outline_rounded,
-              color: HomeScreen.iceDeep),
-          onPressed: () {},
-          tooltip: 'Profile',
+        const SizedBox(width: 6),
+        Text(
+          '· sustainable scan',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: _inkSoft.withValues(alpha: 0.75),
+            letterSpacing: 0.2,
+          ),
         ),
       ],
     );
@@ -180,11 +178,7 @@ class _TopBar extends StatelessWidget {
 }
 
 // ============================================================
-// NANUK THE MASCOT — polar bear emoji + speech bubble.
-// To upgrade to a PNG later:
-//   Replace the Text('🐻\u200d❄️') with
-//   Image.asset('assets/nanuk.png', width: 96, height: 96)
-//   and add the asset to pubspec.yaml.
+// NANUK THE MASCOT — polar bear emoji + warm speech bubble.
 // ============================================================
 class _NanukMascot extends StatelessWidget {
   const _NanukMascot();
@@ -193,18 +187,18 @@ class _NanukMascot extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        // Bear in a frosty circle.
+        // Bear in a warm cream circle with a gold ring.
         Container(
           width: 92,
           height: 92,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.white,
-            border: Border.all(color: HomeScreen.iceSoft, width: 4),
+            color: _creamCard,
+            border: Border.all(color: _sunGold.withValues(alpha: 0.45), width: 3),
             boxShadow: [
               BoxShadow(
-                color: HomeScreen.iceMid.withValues(alpha: 0.25),
-                blurRadius: 16,
+                color: _sunGold.withValues(alpha: 0.25),
+                blurRadius: 18,
                 offset: const Offset(0, 6),
               ),
             ],
@@ -215,7 +209,7 @@ class _NanukMascot extends StatelessWidget {
         ),
         const SizedBox(width: 12),
 
-        // Speech bubble.
+        // Speech bubble — matches _NanukQuote style from results.
         Expanded(
           child: Stack(
             clipBehavior: Clip.none,
@@ -224,12 +218,14 @@ class _NanukMascot extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
+                  color: _creamCard,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                      color: _sunGold.withValues(alpha: 0.30), width: 1.5),
                   boxShadow: [
                     BoxShadow(
-                      color: HomeScreen.iceMid.withValues(alpha: 0.15),
-                      blurRadius: 10,
+                      color: _sunGold.withValues(alpha: 0.15),
+                      blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
                   ],
@@ -242,16 +238,17 @@ class _NanukMascot extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
-                        color: HomeScreen.iceDeep,
+                        color: _inkDark,
                       ),
                     ),
                     SizedBox(height: 2),
                     Text(
-                      'Scan a product to help save my home.',
+                      'Scan a product to help save my home 🌍',
                       style: TextStyle(
                         fontSize: 12.5,
                         height: 1.35,
-                        color: Colors.black87,
+                        color: _inkSoft,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -266,7 +263,19 @@ class _NanukMascot extends StatelessWidget {
                   child: Container(
                     width: 12,
                     height: 12,
-                    color: Colors.white,
+                    decoration: BoxDecoration(
+                      color: _creamCard,
+                      border: Border(
+                        bottom: BorderSide(
+                          color: _sunGold.withValues(alpha: 0.30),
+                          width: 1.5,
+                        ),
+                        left: BorderSide(
+                          color: _sunGold.withValues(alpha: 0.30),
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -279,8 +288,7 @@ class _NanukMascot extends StatelessWidget {
 }
 
 // ============================================================
-// SCAN HERO — big circular button with a pulsing ring.
-// The main action of the whole app.
+// SCAN HERO — warm gold halo wrapping a glacier-blue button.
 // ============================================================
 class _ScanHero extends StatelessWidget {
   final AnimationController pulse;
@@ -290,12 +298,12 @@ class _ScanHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 260,
-      height: 260,
+      width: 280,
+      height: 280,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Animated pulsing rings behind the button.
+          // Warm golden pulsing rings behind the button.
           AnimatedBuilder(
             animation: pulse,
             builder: (_, __) {
@@ -309,27 +317,49 @@ class _ScanHero extends StatelessWidget {
             },
           ),
 
-          // Foreground scan button.
+          // Static soft golden halo behind the button.
+          Container(
+            width: 240,
+            height: 240,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  _sunGold.withValues(alpha: 0.22),
+                  _sunGold.withValues(alpha: 0.0),
+                ],
+                stops: const [0.55, 1.0],
+              ),
+            ),
+          ),
+
+          // Foreground scan button — still glacier-blue so "scan" reads.
           Material(
             color: Colors.transparent,
             child: InkWell(
               onTap: onTap,
               customBorder: const CircleBorder(),
               child: Container(
-                width: 210,
-                height: 210,
+                width: 200,
+                height: 200,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [HomeScreen.iceMid, HomeScreen.iceDeep],
+                    colors: [_iceBlue, _iceDeep],
                   ),
+                  border: Border.all(color: Colors.white, width: 4),
                   boxShadow: [
                     BoxShadow(
-                      color: HomeScreen.iceDeep.withValues(alpha: 0.45),
+                      color: _iceDeep.withValues(alpha: 0.40),
                       blurRadius: 28,
                       offset: const Offset(0, 14),
+                    ),
+                    BoxShadow(
+                      color: _sunGold.withValues(alpha: 0.25),
+                      blurRadius: 20,
+                      spreadRadius: 2,
                     ),
                   ],
                 ),
@@ -337,8 +367,8 @@ class _ScanHero extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.qr_code_scanner_rounded,
-                        color: Colors.white, size: 72),
-                    SizedBox(height: 10),
+                        color: Colors.white, size: 68),
+                    SizedBox(height: 8),
                     Text(
                       'SCAN',
                       style: TextStyle(
@@ -353,7 +383,7 @@ class _ScanHero extends StatelessWidget {
                       'tap to start',
                       style: TextStyle(
                         color: Colors.white70,
-                        fontSize: 12,
+                        fontSize: 11.5,
                       ),
                     ),
                   ],
@@ -373,14 +403,14 @@ class _ScanHero extends StatelessWidget {
       builder: (_, __) {
         final t = (pulse.value + offset) % 1.0;
         final size = 210 + (t * 70);
-        final opacity = (1.0 - t) * 0.35;
+        final opacity = (1.0 - t) * 0.45;
         return Container(
           width: size,
           height: size,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-              color: HomeScreen.iceMid.withValues(alpha: opacity),
+              color: _sunGold.withValues(alpha: opacity),
               width: 4,
             ),
           ),
@@ -403,13 +433,13 @@ class _StatChipRow extends StatelessWidget {
       children: const [
         _Chip(
           icon: Icons.emoji_events_rounded,
-          iconColor: HomeScreen.accent,
+          iconColor: _sunGold,
           value: '0',
           label: 'Points',
         ),
         _Chip(
           icon: Icons.co2_rounded,
-          iconColor: HomeScreen.iceMid,
+          iconColor: _happyGreen,
           value: '0 kg',
           label: 'CO\u2082 saved',
         ),
@@ -442,11 +472,12 @@ class _Chip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: _creamCard,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _sunGold.withValues(alpha: 0.20), width: 1),
         boxShadow: [
           BoxShadow(
-            color: HomeScreen.iceMid.withValues(alpha: 0.12),
+            color: _sunGold.withValues(alpha: 0.10),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -455,19 +486,29 @@ class _Chip extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: iconColor, size: 20),
-          const SizedBox(height: 4),
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: iconColor.withValues(alpha: 0.15),
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, color: iconColor, size: 18),
+          ),
+          const SizedBox(height: 6),
           Text(
             value,
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w800,
-              color: HomeScreen.iceDeep,
+              color: _inkDark,
             ),
           ),
           Text(
             label,
-            style: const TextStyle(fontSize: 10.5, color: Colors.black54),
+            style: const TextStyle(
+                fontSize: 10.5, color: _inkSoft, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -476,47 +517,129 @@ class _Chip extends StatelessWidget {
 }
 
 // ============================================================
-// FOOTER BUTTON — light pill-style secondary action.
+// BOTTOM NAV BAR — warm cream bar with 4 tabs.
+// Active tab gets a golden pill behind the icon.
+// Currently only Home is functional; the rest show a snackbar.
 // ============================================================
-class _FooterButton extends StatelessWidget {
+class _NanukNavBar extends StatelessWidget {
+  final int currentIndex;
+  final void Function(String) onSnack;
+
+  const _NanukNavBar({
+    required this.currentIndex,
+    required this.onSnack,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: _creamCard,
+        border: Border(
+          top: BorderSide(
+            color: _sunGold.withValues(alpha: 0.25),
+            width: 1.5,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: _inkDark.withValues(alpha: 0.08),
+            blurRadius: 14,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _NavItem(
+                icon: Icons.home_rounded,
+                label: 'Home',
+                active: currentIndex == 0,
+                onTap: () {}, // already on home
+              ),
+              _NavItem(
+                icon: Icons.history_rounded,
+                label: 'History',
+                active: currentIndex == 1,
+                onTap: () => onSnack('History coming soon'),
+              ),
+              _NavItem(
+                icon: Icons.emoji_events_rounded,
+                label: 'Awards',
+                active: currentIndex == 2,
+                onTap: () => onSnack('Awards coming soon'),
+              ),
+              _NavItem(
+                icon: Icons.person_outline_rounded,
+                label: 'Profile',
+                active: currentIndex == 3,
+                onTap: () => onSnack('Profile coming soon'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;
+  final bool active;
   final VoidCallback onTap;
 
-  const _FooterButton({
+  const _NavItem({
     required this.icon,
     required this.label,
+    required this.active,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: HomeScreen.iceSoft, width: 1.5),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: HomeScreen.iceDeep, size: 18),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: HomeScreen.iceDeep,
+    final color = active ? _sunGold : _inkSoft;
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Golden pill behind the icon when active.
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: active
+                        ? _sunGold.withValues(alpha: 0.18)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Icon(icon, color: color, size: 22),
                 ),
-              ),
-            ],
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: color,
+                    fontWeight:
+                        active ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
