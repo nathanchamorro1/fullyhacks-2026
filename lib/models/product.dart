@@ -18,8 +18,10 @@ class Product {
   final String? manufacturingPlaces;
   final List<String> labels;          // e.g. ["organic", "fair-trade"]
   final List<String> categories;
-  final String? ecoScoreGrade;        // Open Food Facts' own a-e grade if present
-  final String? novaGroup;            // ultra-processed food classification
+  final String? ecoScoreGrade;
+  final int? ecoScoreScore;
+  final String? nutriScoreGrade;
+  final String? novaGroup;
 
   const Product({
     required this.barcode,
@@ -33,6 +35,8 @@ class Product {
     this.labels = const [],
     this.categories = const [],
     this.ecoScoreGrade,
+    this.ecoScoreScore,
+    this.nutriScoreGrade,
     this.novaGroup,
   });
 

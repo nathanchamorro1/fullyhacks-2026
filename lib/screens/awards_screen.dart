@@ -16,6 +16,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import '../services/scan_storage.dart';
 
 // ── Badge data model ─────────────────────────────────────────
 class Badge {
@@ -34,119 +35,59 @@ class Badge {
   });
 }
 
-// ── Demo progress (replace with SharedPreferences) ────────────
-const int _totalScans  = 0;
-const int _streakDays  = 0;
-const int _totalAGrades = 0;
-
-// ── Badge definitions ─────────────────────────────────────────
-List<Badge> _scannerBadges = [
-  Badge(
-    emoji: '🔭',
-    title: 'First Scan',
-    description: 'Scan your very first product.',
-    unlocked: _totalScans >= 1,
-    color: kGold,
-  ),
-  Badge(
-    emoji: '🧪',
-    title: 'Lab Rat',
-    description: 'Scan 10 products.',
-    unlocked: _totalScans >= 10,
-    color: const Color(0xFF4A90B8),
-  ),
-  Badge(
-    emoji: '🔬',
-    title: 'Researcher',
-    description: 'Scan 25 products.',
-    unlocked: _totalScans >= 25,
-    color: kMoss,
-  ),
-  Badge(
-    emoji: '📊',
-    title: 'Data Nerd',
-    description: 'Scan 50 products.',
-    unlocked: _totalScans >= 50,
-    color: const Color(0xFF7B4EA0),
-  ),
-  Badge(
-    emoji: '🏆',
-    title: 'Century',
-    description: 'Scan 100 products.',
-    unlocked: _totalScans >= 100,
-    color: const Color(0xFFE8A020),
-  ),
-];
-
-List<Badge> _streakerBadges = [
-  Badge(
-    emoji: '🔥',
-    title: '3-Day Streak',
-    description: 'Scan for 3 days in a row.',
-    unlocked: _streakDays >= 3,
-    color: const Color(0xFFE86020),
-  ),
-  Badge(
-    emoji: '⚡',
-    title: 'Week Warrior',
-    description: 'Scan for 7 days straight.',
-    unlocked: _streakDays >= 7,
-    color: const Color(0xFFD4A020),
-  ),
-  Badge(
-    emoji: '🧊',
-    title: 'Ice Keeper',
-    description: 'Keep a 14-day streak.',
-    unlocked: _streakDays >= 14,
-    color: const Color(0xFF4A90B8),
-  ),
-  Badge(
-    emoji: '🐻‍❄️',
-    title: 'Nanuk\'s Champion',
-    description: 'Reach a 30-day streak!',
-    unlocked: _streakDays >= 30,
-    color: kStreakDark,
-  ),
-];
-
-List<Badge> _gradeBadges = [
-  Badge(
-    emoji: '🌱',
-    title: 'Green Choice',
-    description: 'Earn your first A-grade scan.',
-    unlocked: _totalAGrades >= 1,
-    color: kMoss,
-  ),
-  Badge(
-    emoji: '🌿',
-    title: 'Eco Conscious',
-    description: 'Earn 5 A-grade scans.',
-    unlocked: _totalAGrades >= 5,
-    color: kMoss,
-  ),
-  Badge(
-    emoji: '🌳',
-    title: 'Planet Guardian',
-    description: 'Earn 10 A-grade scans.',
-    unlocked: _totalAGrades >= 10,
-    color: const Color(0xFF2D6B22),
-  ),
-];
-
 // ── Screen ───────────────────────────────────────────────────
-class AwardsScreen extends StatelessWidget {
+class AwardsScreen extends StatefulWidget {
   const AwardsScreen({super.key});
+  @override
+  State<AwardsScreen> createState() => _AwardsScreenState();
+}
 
-  int get _totalUnlocked =>
-      [..._scannerBadges, ..._streakerBadges, ..._gradeBadges]
-          .where((b) => b.unlocked)
-          .length;
+class _AwardsScreenState extends State<AwardsScreen> {
+  int _totalScans = 0;
+  int _streakDays = 0;
+  int _totalAGrades = 0;
 
-  int get _totalBadges =>
-      _scannerBadges.length + _streakerBadges.length + _gradeBadges.length;
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final entries = await ScanStorage.load();
+    setState(() {
+      _totalScans = entries.length;
+      _streakDays = ScanStorage.computeStreak(entries);
+      _totalAGrades = entries.where((e) => e.grade == 'A').length;
+    });
+  }
+
+  List<Badge> get _scannerBadges => [
+    Badge(emoji: '🔭', title: 'First Scan',  description: 'Scan your very first product.', unlocked: _totalScans >= 1,   color: kGold),
+    Badge(emoji: '🧪', title: 'Lab Rat',     description: 'Scan 10 products.',             unlocked: _totalScans >= 10,  color: const Color(0xFF4A90B8)),
+    Badge(emoji: '🔬', title: 'Researcher',  description: 'Scan 25 products.',             unlocked: _totalScans >= 25,  color: kMoss),
+    Badge(emoji: '📊', title: 'Data Nerd',   description: 'Scan 50 products.',             unlocked: _totalScans >= 50,  color: const Color(0xFF7B4EA0)),
+    Badge(emoji: '🏆', title: 'Century',     description: 'Scan 100 products.',            unlocked: _totalScans >= 100, color: const Color(0xFFE8A020)),
+  ];
+
+  List<Badge> get _streakerBadges => [
+    Badge(emoji: '🔥',    title: '3-Day Streak',    description: 'Scan for 3 days in a row.',   unlocked: _streakDays >= 3,  color: const Color(0xFFE86020)),
+    Badge(emoji: '⚡',    title: 'Week Warrior',    description: 'Scan for 7 days straight.',   unlocked: _streakDays >= 7,  color: const Color(0xFFD4A020)),
+    Badge(emoji: '🧊',    title: 'Ice Keeper',      description: 'Keep a 14-day streak.',       unlocked: _streakDays >= 14, color: const Color(0xFF4A90B8)),
+    Badge(emoji: '🐻‍❄️', title: "Nanuk's Champion", description: 'Reach a 30-day streak!',     unlocked: _streakDays >= 30, color: kStreakDark),
+  ];
+
+  List<Badge> get _gradeBadges => [
+    Badge(emoji: '🌱', title: 'Green Choice',    description: 'Earn your first A-grade scan.', unlocked: _totalAGrades >= 1,  color: kMoss),
+    Badge(emoji: '🌿', title: 'Eco Conscious',   description: 'Earn 5 A-grade scans.',         unlocked: _totalAGrades >= 5,  color: kMoss),
+    Badge(emoji: '🌳', title: 'Planet Guardian', description: 'Earn 10 A-grade scans.',        unlocked: _totalAGrades >= 10, color: const Color(0xFF2D6B22)),
+  ];
 
   @override
   Widget build(BuildContext context) {
+    final allBadges = [..._scannerBadges, ..._streakerBadges, ..._gradeBadges];
+    final unlocked = allBadges.where((b) => b.unlocked).length;
+
     return Scaffold(
       backgroundColor: kBg,
       body: SafeArea(
@@ -160,23 +101,17 @@ class AwardsScreen extends StatelessWidget {
                   children: [
                     Text('ACHIEVEMENTS', style: kLabelStyle(size: 11, color: kInkMuted)),
                     const SizedBox(height: 4),
-                    Text(
-                      'Awards',
-                      style: kDisplayStyle(size: 32, color: kInk, letterSpacing: -1.0),
-                    ),
+                    Text('Awards', style: kDisplayStyle(size: 32, color: kInk, letterSpacing: -1.0)),
                     const SizedBox(height: 14),
-                    _ProgressBar(
-                      unlocked: _totalUnlocked,
-                      total: _totalBadges,
-                    ),
+                    _ProgressBar(unlocked: unlocked, total: allBadges.length),
                     const SizedBox(height: 24),
                   ],
                 ),
               ),
             ),
-            _BadgeSection(title: '🔬  SCANNER', badges: _scannerBadges),
+            _BadgeSection(title: '🔬  SCANNER',  badges: _scannerBadges),
             _BadgeSection(title: '🔥  STREAKER', badges: _streakerBadges),
-            _BadgeSection(title: '🌱  GRADES', badges: _gradeBadges),
+            _BadgeSection(title: '🌱  GRADES',   badges: _gradeBadges),
             const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
         ),

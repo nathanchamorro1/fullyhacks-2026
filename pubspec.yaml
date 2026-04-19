@@ -12,13 +12,8 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.6
 
-  # Barcode scanning — wraps Google ML Kit (Android) / AVFoundation (iOS).
-  mobile_scanner: ^5.2.3
-
-  # HTTP for Open Food Facts + our own backend.
+  mobile_scanner: ^6.0.0
   http: ^1.2.2
-
-  # Simple local persistence for points / streak / history. Good enough for demo.
   shared_preferences: ^2.3.2
 
 dev_dependencies:

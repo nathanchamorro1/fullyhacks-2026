@@ -12,6 +12,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import '../services/scan_storage.dart';
 
 // ── Data model for a saved scan entry ───────────────────────
 class HistoryEntry {
@@ -30,51 +31,6 @@ class HistoryEntry {
   });
 }
 
-// Demo data — remove / replace when SharedPreferences is wired
-final _demoHistory = <HistoryEntry>[
-  HistoryEntry(
-    productName: 'Oat Milk · 1L',
-    brand: 'Oatly',
-    score: 82,
-    grade: 'A',
-    scannedAt: DateTime.now().subtract(const Duration(hours: 2)),
-  ),
-  HistoryEntry(
-    productName: 'Peanut Butter Choc Bar',
-    brand: 'SnackCo',
-    score: 42,
-    grade: 'C',
-    scannedAt: DateTime.now().subtract(const Duration(hours: 8)),
-  ),
-  HistoryEntry(
-    productName: 'Original Doritos',
-    brand: 'Frito-Lay',
-    score: 28,
-    grade: 'D',
-    scannedAt: DateTime.now().subtract(const Duration(days: 1)),
-  ),
-  HistoryEntry(
-    productName: 'Organic Apple Juice',
-    brand: 'Lakewood',
-    score: 74,
-    grade: 'B',
-    scannedAt: DateTime.now().subtract(const Duration(days: 1, hours: 4)),
-  ),
-  HistoryEntry(
-    productName: 'Greek Yogurt Plain',
-    brand: 'Fage',
-    score: 67,
-    grade: 'B-',
-    scannedAt: DateTime.now().subtract(const Duration(days: 2)),
-  ),
-  HistoryEntry(
-    productName: 'Instant Ramen Noodles',
-    brand: 'Nissin',
-    score: 18,
-    grade: 'F',
-    scannedAt: DateTime.now().subtract(const Duration(days: 3)),
-  ),
-];
 
 // ── Screen ───────────────────────────────────────────────────
 class HistoryScreen extends StatefulWidget {
@@ -84,8 +40,26 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  // TODO: load from SharedPreferences
-  final List<HistoryEntry> _entries = _demoHistory;
+  List<HistoryEntry> _entries = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final scans = await ScanStorage.load();
+    setState(() {
+      _entries = scans.map((e) => HistoryEntry(
+        productName: e.name,
+        brand: e.brand,
+        score: e.score,
+        grade: e.grade,
+        scannedAt: e.scannedAt,
+      )).toList();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -95,7 +69,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _HistoryHeader(entryCount: _entries.length),
+            _HistoryHeader(entries: _entries),
             Expanded(
               child: _entries.isEmpty
                   ? _EmptyState()
@@ -110,8 +84,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
 // ── Header ───────────────────────────────────────────────────
 class _HistoryHeader extends StatelessWidget {
-  final int entryCount;
-  const _HistoryHeader({required this.entryCount});
+  final List<HistoryEntry> entries;
+  const _HistoryHeader({required this.entries});
+  int get entryCount => entries.length;
 
   @override
   Widget build(BuildContext context) {
@@ -130,7 +105,7 @@ class _HistoryHeader extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           // Summary strip
-          _SummaryStrip(entries: _demoHistory),
+          _SummaryStrip(entries: entries),
           const SizedBox(height: 20),
         ],
       ),

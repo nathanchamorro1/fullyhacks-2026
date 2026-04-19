@@ -151,24 +151,24 @@ Color _moodColor(_Mood m) => switch (m) {
     };
 
 String _verdictTitle(_Mood m) => switch (m) {
-      _Mood.happy => 'Nanuk approves! 🎉',
-      _Mood.meh => 'Hmm... could be better',
+      _Mood.happy => 'Nanuk approves!',
+      _Mood.meh => 'Hmm... this could be better.',
       _Mood.sad => 'Nanuk\'s ice is melting 💔',
     };
 
 String _verdictSub(_Mood m) => switch (m) {
       _Mood.happy => 'This product keeps the ice cold.',
       _Mood.meh => 'Not terrible, but Nanuk has opinions.',
-      _Mood.sad => 'Please pick something gentler for our home.',
+      _Mood.sad => 'Please pick something better.',
     };
 
 String _nanukLine(_Mood m) => switch (m) {
       _Mood.happy =>
-        '"My paws love this choice. The ice stays strong thanks to you."',
+        '"I love this choice!"',
       _Mood.meh =>
-        '"It\'s okay... but check out the alternatives below — they\'re kinder."',
+        '"It\'s okay... but check out the alternatives below."',
       _Mood.sad =>
-        '"Every one of these melts a little more of my home. Swap it, please?"',
+        '"Please swap this out..."',
     };
 
 // ============================================================
@@ -245,7 +245,7 @@ class _ResultsScreenState extends State<ResultsScreen>
                   const SizedBox(height: 12),
                   _BreakdownGrid(factors: widget.result.breakdown),
                   const SizedBox(height: 28),
-                  const _WarmSectionTitle('Kinder swaps'),
+                  const _WarmSectionTitle('Alternatives'),
                   const SizedBox(height: 6),
                   const Text(
                     'Nanuk recommends these instead:',
@@ -991,24 +991,6 @@ class _ScoreGauge extends StatelessWidget {
                   letterSpacing: 1.2,
                 ),
               ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  'GRADE $grade',
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    color: color,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 12,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ),
               const SizedBox(height: 10),
               ScoreDots(score: score, size: 11, spacing: 6),
             ],
@@ -1342,7 +1324,7 @@ class _PointsBanner extends StatelessWidget {
     final pts = mood == _Mood.happy ? 20 : 10;
     final msg = mood == _Mood.happy
         ? 'Great pick! Bonus points for keeping Nanuk happy.'
-        : 'Earn 2× points when you pick a kinder swap above.';
+        : 'Earn 2× points when you pick a better alternative above.';
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -1372,7 +1354,7 @@ class _PointsBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '+$pts POINTS EARNED!',
+                  '+$pts POINTS EARNED',
                   style: kDisplayStyle(size: 16, color: kInk, letterSpacing: 0.5),
                 ),
                 const SizedBox(height: 3),

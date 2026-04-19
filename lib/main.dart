@@ -1,13 +1,3 @@
-// ============================================================
-// main.dart — app entry point + persistent shell.
-//
-// AppShell owns the bottom nav bar. The scan button lives on
-// the home screen as the hero element — no separate FAB needed.
-//
-// Navigation tabs (evenly spaced, no FAB):
-//   [Home]  [History]  [Awards]
-// ============================================================
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -179,7 +169,6 @@ class _NavBtn extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 3),
-              // Active indicator — blue dot
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 width: active ? 4 : 0,

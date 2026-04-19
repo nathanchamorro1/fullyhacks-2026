@@ -61,14 +61,6 @@ class HomeScreen extends StatelessWidget {
 class _TopBar extends StatelessWidget {
   _TopBar();
 
-  String get _dateLabel {
-    final n = DateTime.now();
-    const days   = ['MON','TUE','WED','THU','FRI','SAT','SUN'];
-    const months = ['JAN','FEB','MAR','APR','MAY','JUN',
-                    'JUL','AUG','SEP','OCT','NOV','DEC'];
-    return '${days[n.weekday - 1]} · ${months[n.month - 1]} ${n.day}';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -82,7 +74,6 @@ class _TopBar extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('🐻‍❄️', style: TextStyle(fontSize: 14)),
               const SizedBox(width: 6),
               Text('NANUK',
                   style: kLabelStyle(size: 12, color: Colors.white, letterSpacing: 2.0)),
@@ -90,7 +81,6 @@ class _TopBar extends StatelessWidget {
           ),
         ),
         const Spacer(),
-        Text(_dateLabel, style: kLabelStyle(size: 10, color: kInkMuted)),
       ],
     );
   }
