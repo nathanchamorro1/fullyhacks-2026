@@ -6,12 +6,35 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import '../services/stats_service.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
-  void _onScanTap(BuildContext context) =>
-      Navigator.of(context).pushNamed('/scan');
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final _stats = StatsService();
+  UserStats _userStats = UserStats.empty;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    final s = await _stats.load();
+    if (mounted) setState(() => _userStats = s);
+  }
+
+  // Reload stats every time we return from the scan screen
+  Future<void> _onScanTap() async {
+    await Navigator.of(context).pushNamed('/scan');
+    _loadStats(); // refresh after returning
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,21 +47,26 @@ class HomeScreen extends StatelessWidget {
             children: [
               _TopBar(),
               const SizedBox(height: 16),
-              _MascotRow(),
+              const _MascotRow(),
               const SizedBox(height: 24),
-              // ── HERO ─────────────────────────────────────────
               Expanded(
                 child: Center(
-                  child: _ScanHero(
-                    onTap: () => _onScanTap(context),
-                  ),
+                  child: _ScanHero(onTap: _onScanTap),
                 ),
               ),
               const SizedBox(height: 24),
-              _StatRow(),
+              _StatRow(
+                scans:     _userStats.scanCount,
+                streak:    _userStats.streakDays,
+                avgGrade:  _userStats.avgGrade,
+              ),
               const SizedBox(height: 8),
               GestureDetector(
-                onTap: () => Navigator.of(context).pushNamed('/results'),
+                onTap: () async {
+                  await StatsService().recordScan(85);
+                  await Navigator.of(context).pushNamed('/results');
+                  _loadStats();
+                },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
@@ -281,17 +309,26 @@ class _BracketPainter extends CustomPainter {
 // STAT ROW
 // ============================================================
 class _StatRow extends StatelessWidget {
-  const _StatRow();
+  final int scans;
+  final int streak;
+  final String avgGrade;
+  const _StatRow({
+    required this.scans,
+    required this.streak,
+    required this.avgGrade,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _StatChip(label: 'SCANS',     value: '0',  icon: Icons.qr_code_rounded,               accent: kBlue),
+        _StatChip(label: 'SCANS',     value: '$scans',   icon: Icons.qr_code_rounded,               accent: kBlue),
         const SizedBox(width: 10),
-        _StatChip(label: 'STREAK',    value: '0',  icon: Icons.local_fire_department_rounded,  accent: kInkMuted),
+        streak > 0
+            ? _StreakChip(days: streak)
+            : _StatChip(label: 'STREAK', value: '0',     icon: Icons.local_fire_department_rounded,  accent: kInkMuted),
         const SizedBox(width: 10),
-        _StatChip(label: 'AVG GRADE', value: '—',  icon: Icons.grade_rounded,                 accent: kMoss, mono: true),
+        _StatChip(label: 'AVG GRADE', value: avgGrade,   icon: Icons.grade_rounded,                 accent: kMoss, mono: true),
       ],
     );
   }

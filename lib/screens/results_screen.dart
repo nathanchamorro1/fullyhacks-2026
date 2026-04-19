@@ -17,6 +17,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import '../services/backend_service.dart';
 
 // ---- Palette aliases (preserve internal references to _ice* for painter) ----
 const _creamBG   = kBg;
@@ -30,108 +31,7 @@ const _iceBlue = Color(0xFF81D4FA);   // used in water layer only
 const _iceDeep = Color(0xFF0288D1);   // used in iceberg painter only
 const _water   = Color(0xFF1976D2);   // used in water layer only
 
-// ============================================================
-// DATA MODELS (unchanged — drop-in when backend lands)
-// ============================================================
-class ScanResult {
-  final String name;
-  final String brand;
-  final String? imageUrl;
-  final int score;
-  final String grade;
-  final List<ScoreFactor> breakdown;
-  final List<Alternative> alternatives;
-
-  const ScanResult({
-    required this.name,
-    required this.brand,
-    required this.score,
-    required this.grade,
-    required this.breakdown,
-    required this.alternatives,
-    this.imageUrl,
-  });
-
-  factory ScanResult.demo() => const ScanResult(
-        name: 'Peanut Butter Chocolate Bar',
-        brand: 'SnackCo',
-        imageUrl: null,
-        score: 85,
-        grade: 'A',
-        breakdown: [
-          ScoreFactor(
-            emoji: '📦',
-            label: 'Packaging',
-            detail: 'Single-use plastic, not recyclable in most places.',
-            score: 25,
-          ),
-          ScoreFactor(
-            emoji: '🌱',
-            label: 'Ingredients',
-            detail: 'Palm oil linked to deforestation. Not organic.',
-            score: 35,
-          ),
-          ScoreFactor(
-            emoji: '🌍',
-            label: 'Origin',
-            detail: 'Ingredients from 3 continents — heavy shipping.',
-            score: 40,
-          ),
-          ScoreFactor(
-            emoji: '🏭',
-            label: 'Company',
-            detail: 'No public sustainability pledges or targets.',
-            score: 55,
-          ),
-        ],
-        alternatives: [
-          Alternative(
-            name: 'Fair-Trade Dark Chocolate',
-            brand: 'GreenLeaf',
-            score: 87,
-            reason: 'Recyclable paper wrap + organic cocoa',
-          ),
-          Alternative(
-            name: 'Oat & Almond Bar',
-            brand: 'HarvestRoots',
-            score: 78,
-            reason: 'Local ingredients, compostable wrap',
-          ),
-          Alternative(
-            name: 'Nut Butter Cups',
-            brand: 'PurePlant',
-            score: 72,
-            reason: 'B-Corp certified, no palm oil',
-          ),
-        ],
-      );
-}
-
-class ScoreFactor {
-  final String emoji;
-  final String label;
-  final String detail;
-  final int score;
-  const ScoreFactor({
-    required this.emoji,
-    required this.label,
-    required this.detail,
-    required this.score,
-  });
-}
-
-class Alternative {
-  final String name;
-  final String brand;
-  final int score;
-  final String reason;
-  const Alternative({
-    required this.name,
-    required this.brand,
-    required this.score,
-    required this.reason,
-  });
-}
+// Data model is AnalysisResult from backend_service.dart
 
 // ============================================================
 // MOOD — derived from score
@@ -143,6 +43,7 @@ _Mood _moodFromScore(int s) {
   if (s >= 40) return _Mood.meh;
   return _Mood.sad;
 }
+
 
 Color _moodColor(_Mood m) => switch (m) {
       _Mood.happy => kMoss,
@@ -175,11 +76,10 @@ String _nanukLine(_Mood m) => switch (m) {
 // MAIN SCREEN
 // ============================================================
 class ResultsScreen extends StatefulWidget {
-  final ScanResult result;
+  final AnalysisResult result;
 
-  // Non-const: falls back to demo data via factory.
-  ResultsScreen({super.key, ScanResult? result})
-      : result = result ?? ScanResult.demo();
+  ResultsScreen({super.key, AnalysisResult? result})
+      : result = result ?? AnalysisResult.demo();
 
   @override
   State<ResultsScreen> createState() => _ResultsScreenState();
@@ -206,7 +106,7 @@ class _ResultsScreenState extends State<ResultsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final mood = _moodFromScore(widget.result.score);
+    final mood = _moodFromScore(widget.result.combinedScore);
 
     return Scaffold(
       backgroundColor: _creamBG,
@@ -241,33 +141,26 @@ class _ResultsScreenState extends State<ResultsScreen>
                   const SizedBox(height: 18),
                   _NanukQuote(mood: mood),
                   const SizedBox(height: 24),
-                  const _WarmSectionTitle('Why Nanuk feels this way'),
-                  const SizedBox(height: 12),
-                  _BreakdownGrid(factors: widget.result.breakdown),
-                  const SizedBox(height: 28),
-                  const _WarmSectionTitle('Kinder swaps'),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Nanuk recommends these instead:',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: _inkSoft,
-                      height: 1.35,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    height: 210,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      itemCount: widget.result.alternatives.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 14),
-                      itemBuilder: (_, i) =>
-                          _AlternativeCard(alt: widget.result.alternatives[i]),
-                    ),
-                  ),
+                  _ScoreSplitRow(result: widget.result),
                   const SizedBox(height: 24),
+                  if (widget.result.summary.isNotEmpty) ...[
+                    const _WarmSectionTitle('Summary'),
+                    const SizedBox(height: 10),
+                    _SummaryCard(summary: widget.result.summary),
+                    const SizedBox(height: 24),
+                  ],
+                  if (widget.result.flags.isNotEmpty) ...[
+                    const _WarmSectionTitle('Watch out for'),
+                    const SizedBox(height: 10),
+                    _ChipWrap(items: widget.result.flags, color: kScarlet),
+                    const SizedBox(height: 24),
+                  ],
+                  if (widget.result.positives.isNotEmpty) ...[
+                    const _WarmSectionTitle('The good stuff'),
+                    const SizedBox(height: 10),
+                    _ChipWrap(items: widget.result.positives, color: kMoss),
+                    const SizedBox(height: 24),
+                  ],
                   _PointsBanner(mood: mood),
                 ],
               ),
@@ -831,7 +724,7 @@ class _IcebergPainter extends CustomPainter {
 // the number in the center, then verdict headline underneath.
 // ============================================================
 class _VerdictCard extends StatelessWidget {
-  final ScanResult result;
+  final AnalysisResult result;
   final _Mood mood;
   const _VerdictCard({required this.result, required this.mood});
 
@@ -856,7 +749,7 @@ class _VerdictCard extends StatelessWidget {
         children: [
           // ---- HERO SCORE GAUGE ----
           _ScoreGauge(
-            score: result.score,
+            score: result.combinedScore,
             grade: result.grade,
             color: color,
           ),
@@ -893,7 +786,7 @@ class _VerdictCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        result.name,
+                        result.productName,
                         style: const TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w800,
@@ -1138,194 +1031,152 @@ class _WarmSectionTitle extends StatelessWidget {
 }
 
 // ============================================================
-// BREAKDOWN — 2x2 grid of chunky emoji chips.
+// SCORE SPLIT ROW — health vs sustainability side by side
 // ============================================================
-class _BreakdownGrid extends StatelessWidget {
-  final List<ScoreFactor> factors;
-  const _BreakdownGrid({required this.factors});
+class _ScoreSplitRow extends StatelessWidget {
+  final AnalysisResult result;
+  const _ScoreSplitRow({required this.result});
 
   @override
   Widget build(BuildContext context) {
-    // Build a 2-column grid manually so tiles can be flexible in height.
-    final rows = <Widget>[];
-    for (int i = 0; i < factors.length; i += 2) {
-      final a = factors[i];
-      final b = i + 1 < factors.length ? factors[i + 1] : null;
-      rows.add(Padding(
-        padding: EdgeInsets.only(top: i == 0 ? 0 : 12),
-        // IntrinsicHeight lets two chips match heights without
-        // stretch-layout assertions on web.
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: _FactorChip(factor: a)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: b != null
-                    ? _FactorChip(factor: b)
-                    : const SizedBox.shrink(),
-              ),
-            ],
-          ),
+    return Row(
+      children: [
+        _ScoreTile(
+          label: 'HEALTH',
+          score: result.healthScore,
+          outOf: 10,
+          icon: Icons.favorite_rounded,
         ),
-      ));
-    }
-    return Column(children: rows);
+        const SizedBox(width: 12),
+        _ScoreTile(
+          label: 'SUSTAINABILITY',
+          score: result.sustainabilityScore,
+          outOf: 10,
+          icon: Icons.eco_rounded,
+        ),
+      ],
+    );
   }
 }
 
-class _FactorChip extends StatelessWidget {
-  final ScoreFactor factor;
-  const _FactorChip({required this.factor});
+class _ScoreTile extends StatelessWidget {
+  final String label;
+  final int score;
+  final int outOf;
+  final IconData icon;
+  const _ScoreTile({
+    required this.label,
+    required this.score,
+    required this.outOf,
+    required this.icon,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final mood = _moodFromScore(factor.score);
-    final color = _moodColor(mood);
+    final pct   = score / outOf;
+    final color = scoreColor((pct * 100).round());
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _creamCard,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: color.withValues(alpha: 0.35), width: 1.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: color.withValues(alpha: 0.14),
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: scoreBg((pct * 100).round()),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color, size: 16),
+                const SizedBox(width: 6),
+                Text(label, style: kLabelStyle(size: 9, color: color)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text('$score', style: kMonoStyle(size: 30, color: color)),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4, left: 3),
+                  child: Text('/$outOf',
+                      style: kLabelStyle(size: 11, color: color.withValues(alpha: 0.6))),
                 ),
-                alignment: Alignment.center,
-                child: Text(factor.emoji,
-                    style: const TextStyle(fontSize: 20)),
-              ),
-              const Spacer(),
-              Text(
-                switch (mood) {
-                  _Mood.happy => '👍',
-                  _Mood.meh => '🤷',
-                  _Mood.sad => '👎',
-                },
-                style: const TextStyle(fontSize: 18),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            factor.label,
-            style: const TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w800,
-              color: _inkDark,
+              ],
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            factor.detail,
-            style: const TextStyle(
-              fontSize: 11.5,
-              color: _inkSoft,
-              height: 1.35,
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Stack(children: [
+                Container(height: 5, color: color.withValues(alpha: 0.15)),
+                FractionallySizedBox(
+                  widthFactor: pct,
+                  child: Container(height: 5, color: color),
+                ),
+              ]),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
 // ============================================================
-// ALTERNATIVE CARD — chunky, warm, score pill at top.
+// SUMMARY CARD
 // ============================================================
-class _AlternativeCard extends StatelessWidget {
-  final Alternative alt;
-  const _AlternativeCard({required this.alt});
+class _SummaryCard extends StatelessWidget {
+  final String summary;
+  const _SummaryCard({required this.summary});
 
   @override
   Widget build(BuildContext context) {
-    final mood = _moodFromScore(alt.score);
-    final color = _moodColor(mood);
-
     return Container(
-      width: 210,
-      padding: const EdgeInsets.all(14),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: _creamCard,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: _inkDark.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _inkDark.withValues(alpha: 0.07)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Row(
-                children: [
-                  ScoreDots(score: alt.score, size: 9, spacing: 4),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${alt.score}',
-                    style: kMonoStyle(size: 13, color: color),
+      child: Text(summary, style: kBodyStyle(size: 14, color: _inkDark)),
+    );
+  }
+}
+
+// ============================================================
+// CHIP WRAP — flags or positives as pill chips
+// ============================================================
+class _ChipWrap extends StatelessWidget {
+  final List<String> items;
+  final Color color;
+  const _ChipWrap({required this.items, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: items
+          .map((item) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: color.withValues(alpha: 0.30)),
+                ),
+                child: Text(
+                  item,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: color,
                   ),
-                ],
-              ),
-              const Spacer(),
-              const Icon(Icons.favorite_rounded, color: kScarlet, size: 18),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            alt.name,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: _inkDark,
-              height: 1.2,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            alt.brand,
-            style: const TextStyle(fontSize: 11.5, color: _inkSoft),
-          ),
-          const Spacer(),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: _creamBG,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Text(
-              alt.reason,
-              style: const TextStyle(
-                fontSize: 11.5,
-                color: _inkDark,
-                fontWeight: FontWeight.w600,
-                height: 1.3,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
+                ),
+              ))
+          .toList(),
     );
   }
 }

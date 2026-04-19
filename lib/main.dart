@@ -45,7 +45,9 @@ class NanukApp extends StatelessWidget {
       home: const AppShell(),
       routes: {
         '/scan':    (_) => const ScanScreen(),
-        '/results': (_) => ResultsScreen(),
+        '/results': (ctx) => ResultsScreen(
+              result: ModalRoute.of(ctx)!.settings.arguments as dynamic,
+            ),
       },
     );
   }
