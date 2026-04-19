@@ -161,6 +161,10 @@ class BackendService {
           'Scan error ${response.statusCode}: ${response.body}');
     }
 
+    // 🔍 DEBUG — print the raw response so we can check field names
+    // ignore: avoid_print
+    print('[Nanuk] /scan raw response: ${response.body}');
+
     return ScanData.fromJson(
         jsonDecode(response.body) as Map<String, dynamic>);
   }
@@ -181,6 +185,10 @@ class BackendService {
       throw Exception(
           'Analysis error ${response.statusCode}: ${response.body}');
     }
+
+    // 🔍 DEBUG — print the raw response so we can check field names
+    // ignore: avoid_print
+    print('[Nanuk] /analyze raw response: ${response.body}');
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     return AnalysisResult.fromJson(
