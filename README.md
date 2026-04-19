@@ -1,3 +1,5 @@
+Built by: Nathan Chamarro and Bassma Ennarah
+
 # Nanuk
 
 We created **Nanuk** to make sustainable shopping feel simple, personal, and motivating.
