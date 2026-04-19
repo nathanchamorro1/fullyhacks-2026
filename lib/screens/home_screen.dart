@@ -52,15 +52,10 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _onScanPressed() {
-    // Placeholder — swap for Navigator.pushNamed('/scan') once barcode
-    // branch merges.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Nanuk is waiting — scanner hooks up after merge'),
-        behavior: SnackBarBehavior.floating,
-        margin: EdgeInsets.all(16),
-      ),
-    );
+    // For now, scanner isn't wired yet — jump straight to the results
+    // screen with demo data so we can design the flow. When the
+    // barcode-scanner branch merges, swap this for '/scan'.
+    Navigator.of(context).pushNamed('/results');
   }
 
   void _showSnack(String msg) {
